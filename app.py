@@ -1,4 +1,4 @@
-import tkinter as tk
+﻿import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Callable, List, Optional, Sequence, Union
 from fractions import Fraction
@@ -6,13 +6,13 @@ from numerical_methods import metodo_biseccion, RegistroBiseccion
 import re
 
 def _normalizar_expresion(expr: str) -> str:
-    # Limpieza básica
+    # Limpieza bÃ¡sica
     expr = (expr or "").strip()
     expr = expr.replace(",", ".")            # 0,5 -> 0.5
-    expr = expr.replace("×", "*").replace("·", "*")
+    expr = expr.replace("Ã—", "*").replace("Â·", "*")
     expr = expr.replace("^", "**")           # ^ -> **
 
-    # Inserciones de multiplicación implícita
+    # Inserciones de multiplicaciÃ³n implÃ­cita
     expr = re.sub(r'(?<=\d)\s*(?=x\b)', '*', expr)            # 2x -> 2*x / 0.5x -> 0.5*x
     expr = re.sub(r'(?<=\d)\s*(?=\()', '*', expr)             # 2(x+1) -> 2*(x+1)
     expr = re.sub(r'\)\s*(?=\()', ')*(', expr)                # )( -> )*(
@@ -50,8 +50,7 @@ import numpy as np
 import matplotlib
 matplotlib.use("TkAgg") # Enlace entre Matplotlib y Tkinter
 from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.backends._backend_tk import NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 def convertir_numero(texto: str) -> Fraction:
     """Convierte una cadena en fraccion."""
@@ -66,19 +65,19 @@ def convertir_numero(texto: str) -> Fraction:
             num, den = texto.split("/")
             return Fraction(int(num), int(den))
         except (ValueError, ZeroDivisionError) as e:
-            raise ValueError(f"Fracción inválida: '{texto}'") from e
+            raise ValueError(f"FracciÃ³n invÃ¡lida: '{texto}'") from e
     else:
         try:
             return Fraction(texto)
         except ValueError as e:
-            raise ValueError(f"Número o decimal inválido: '{texto}'") from e
+            raise ValueError(f"NÃºmero o decimal invÃ¡lido: '{texto}'") from e
 
 
 NumberDisplay = Union[Fraction, float, int]
 
 
 def formatear_valor_ui(valor: NumberDisplay) -> str:
-    """Devuelve una representación amigable (fracciones en formato unicode)."""
+    """Devuelve una representaciÃ³n amigable (fracciones en formato unicode)."""
     if isinstance(valor, Fraction):
         return format_fraction_unicode(valor)
     if isinstance(valor, float):
@@ -143,7 +142,7 @@ class VentanaIndependencia(ttk.Frame):
             registro: Registro = []
             rango, R, piv = rango_matriz(A, registro=registro)
 
-            # Construimos también la RREF aumentada [R | 0]
+            # Construimos tambiÃ©n la RREF aumentada [R | 0]
             # <--- 4. CAMBIO DE 0.0 a Fraction(0)
             R_aumentada = [fila + [Fraction(0)] for fila in R]
 
@@ -174,11 +173,11 @@ class VentanaIndependencia(ttk.Frame):
                 + (", ".join(str(c + 1) for c in piv) if piv else "[ninguna]")
                 + "\n\n"
                 + (
-                    "✅ Los vectores son LINEALMENTE INDEPENDIENTES (rango = n)."
+                    "âœ… Los vectores son LINEALMENTE INDEPENDIENTES (rango = n)."
                     if independiente
-                    else "⚠️ Los vectores son LINEALMENTE DEPENDIENTES (rango < n)."
+                    else "âš ï¸ Los vectores son LINEALMENTE DEPENDIENTES (rango < n)."
                 )
-                + "\n\nMétodo aplicado: Eliminación de Gauss-Jordan sobre la matriz aumentada [A | 0]."
+                + "\n\nMÃ©todo aplicado: EliminaciÃ³n de Gauss-Jordan sobre la matriz aumentada [A | 0]."
             )
 
             fila_texto = self.marco_resultado.grid_size()[1]
@@ -396,7 +395,7 @@ def abrir_ventana_proceso(
    
 
 def abrir_ventana_tabla_biseccion(maestro, registro: RegistroBiseccion, titulo: str):
-    """Abre una ventana Toplevel para mostrar el registro de Bisección como tabla (Treeview)."""
+    """Abre una ventana Toplevel para mostrar el registro de BisecciÃ³n como tabla (Treeview)."""
     if not registro:
         messagebox.showinfo("Proceso", "No hay registro de iteraciones para mostrar.", parent=maestro)
         return
@@ -420,11 +419,11 @@ def abrir_ventana_tabla_biseccion(maestro, registro: RegistroBiseccion, titulo: 
     arbol.heading("iter", text="Iter")
     arbol.heading("a", text="a")
     arbol.heading("b", text="b")
-    arbol.heading("c", text="c (raíz aprox.)")
+    arbol.heading("c", text="c (raÃ­z aprox.)")
     arbol.heading("f(c)", text="f(c)")
     arbol.heading("error", text="Error (b-a)/2")
     
-    # Definir anchos y alineación de columna
+    # Definir anchos y alineaciÃ³n de columna
     arbol.column("iter", width=40, anchor="center", stretch=False)
     arbol.column("a", width=140, anchor="e")
     arbol.column("b", width=140, anchor="e")
@@ -442,7 +441,7 @@ def abrir_ventana_tabla_biseccion(maestro, registro: RegistroBiseccion, titulo: 
     arbol.pack(side="left", fill="both", expand=True)
 
     # --- Insertar datos ---
-    # Usamos formato de punto flotante para la tabla, es más legible
+    # Usamos formato de punto flotante para la tabla, es mÃ¡s legible
     precision_g = 8 
     
     for fila_datos in registro:
@@ -464,13 +463,13 @@ def abrir_ventana_tabla_biseccion(maestro, registro: RegistroBiseccion, titulo: 
 
 
 class VentanaBiseccion(ttk.Frame):
-    """Vista para el Método de Bisección, con gráfico y panel de entrada."""
+    """Vista para el MÃ©todo de BisecciÃ³n, con grÃ¡fico y panel de entrada."""
 
     def __init__(self, maestro):
         super().__init__(maestro, padding=12)
         
         # --- Layout Principal (Panel dividido) ---
-        # Panel que divide la ventana en dos (controles a la izq, gráfico a la der)
+        # Panel que divide la ventana en dos (controles a la izq, grÃ¡fico a la der)
         self.panel_principal = ttk.PanedWindow(self, orient="horizontal")
         self.panel_principal.pack(fill="both", expand=True)
 
@@ -478,10 +477,10 @@ class VentanaBiseccion(ttk.Frame):
         self.frame_controles = ttk.Frame(self.panel_principal, padding=12)
         self.panel_principal.add(self.frame_controles, weight=1) # 'weight=1' le da prioridad
 
-        ttk.Label(self.frame_controles, text="Método de Bisección", font=("Segoe UI", 14, "bold")).pack(
+        ttk.Label(self.frame_controles, text="MÃ©todo de BisecciÃ³n", font=("Segoe UI", 14, "bold")).pack(
             anchor="w", pady=(0, 8)
         )
-        ttk.Label(self.frame_controles, text="Encuentra una raíz de f(x) = 0 en el intervalo [a, b].").pack(
+        ttk.Label(self.frame_controles, text="Encuentra una raÃ­z de f(x) = 0 en el intervalo [a, b].").pack(
             anchor="w", pady=(0, 12)
         )
 
@@ -509,7 +508,7 @@ class VentanaBiseccion(ttk.Frame):
         self.a_var = tk.StringVar(value="1")
         self.b_var = tk.StringVar(value="2")
 
-        # Traza cambios en a y b para refrescar marcadores en el gráfico
+        # Traza cambios en a y b para refrescar marcadores en el grÃ¡fico
         self.a_var.trace_add("write", lambda *args: self._actualizar_marcadores_intervalo())
         self.b_var.trace_add("write", lambda *args: self._actualizar_marcadores_intervalo())
 
@@ -532,10 +531,10 @@ class VentanaBiseccion(ttk.Frame):
 
         controles.columnconfigure(1, weight=1)
 
-        # --- Botones de Acción ---
+        # --- Botones de AcciÃ³n ---
         botones = ttk.Frame(self.frame_controles)
         botones.pack(fill="x", pady=(8, 0))
-        ttk.Button(botones, text="Calcular Raíz", command=self._calcular).pack(side="left")
+        ttk.Button(botones, text="Calcular RaÃ­z", command=self._calcular).pack(side="left")
         ttk.Button(botones, text="Limpiar", command=self._limpiar_resultado).pack(side="left", padx=(8, 0))
         self.boton_proceso = ttk.Button(botones, text="Ver Proceso", command=self._mostrar_proceso, state="disabled")
         self.boton_proceso.pack(side="left", padx=(8, 0))
@@ -544,40 +543,52 @@ class VentanaBiseccion(ttk.Frame):
         self.marco_resultado = ttk.Frame(self.frame_controles)
         self.marco_resultado.pack(fill="both", expand=True, pady=(12, 0))
 
-        # --- 2. Panel Derecho (Gráfico) ---
+        # --- 2. Panel Derecho (GrÃ¡fico) ---
         self.frame_grafico_main = ttk.Frame(self.panel_principal, padding=(12, 0, 0, 0))
-        self.panel_principal.add(self.frame_grafico_main, weight=2) # 'weight=2' le da más espacio
+        self.panel_principal.add(self.frame_grafico_main, weight=2) # 'weight=2' le da mÃ¡s espacio
 
-        # --- Gráfico de Matplotlib ---
+        # --- GrÃ¡fico de Matplotlib ---
         self.figura = Figure(figsize=(5, 4), dpi=100, facecolor="#f0f0f0")
         self.ax = self.figura.add_subplot(1, 1, 1)
         self.ax.set_facecolor("#ffffff")
         self.ax.grid(True, linestyle='--', alpha=0.6)
+        self.ax.format_coord = lambda x, y: ""
         
         self.canvas = FigureCanvasTkAgg(self.figura, master=self.frame_grafico_main)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self.frame_grafico_main, pack_toolbar=False)
+        self.toolbar.update()
+        self.toolbar.pack(side="bottom", fill="x")
+        mensaje = getattr(self.toolbar, "_message_label", None)
+        if mensaje is not None:
+            mensaje.pack_forget()
 
-        # --- Estado para selección con clic en la gráfica ---
-        self._cid_click = self.canvas.mpl_connect("button_press_event", self._on_click)
+        # Debounce para redibujar al cambiar el viewport
+        self._view_after_id = None
+        self.ax.callbacks.connect('xlim_changed', lambda ax: self._on_view_change())
+        self.ax.callbacks.connect('ylim_changed', lambda ax: self._on_view_change())
+
+        # --- Estado para selecciÃ³n con clic en la grÃ¡fica ---
         self._linea_a = None
         self._linea_b = None
         self._sombreado = None
-        self._esperando = "a"
         self._f_numpy = None
         self._rango_actual = (-10.0, 10.0)
+        self._curve_line = None
 
-        # Dibujo inicial (gráfica en vivo)
+        # Dibujo inicial (grÃ¡fica en vivo)
+        self._limpiar_grafico()
         self._auto_graficar()
 
-        # Fija la posición inicial del divisor (350px desde la izquierda)
+        # Fija la posiciÃ³n inicial del divisor (350px desde la izquierda)
         self.panel_principal.sashpos(0, 350)
 
         # --- Estado interno ---
         self._registro_final: RegistroBiseccion = []
         self._resultado_final: Optional[Fraction] = None
         
-        # Dibuja un gráfico vacío al inicio (si no hay f válida)
+        # Dibuja un grÃ¡fico vacÃ­o al inicio (si no hay f vÃ¡lida)
         self._limpiar_grafico()
 
     def crear_panel_botones_fx(self, maestro):
@@ -587,7 +598,7 @@ class VentanaBiseccion(ttk.Frame):
         
         # Fila 1 de botones
         botones_fx = [
-            ("x^2", "x^2"), ("x^3", "x^3"), ("( )", "()"), ("√", "sqrt()"), ("|x|", "abs()"),
+            ("x^2", "x^2"), ("x^3", "x^3"), ("( )", "()"), ("âˆš", "sqrt()"), ("|x|", "abs()"),
         ]
         for i, (texto_btn, texto_insert) in enumerate(botones_fx):
             cmd = lambda t=texto_insert: self._insertar_texto(t)
@@ -601,12 +612,12 @@ class VentanaBiseccion(ttk.Frame):
             cmd = lambda t=texto_insert: self._insertar_texto(t)
             ttk.Button(panel, text=texto_btn, command=cmd, width=4).grid(row=1, column=i, padx=2, pady=2)
             
-        # Mueve el cursor dentro de paréntesis/sqrt
+        # Mueve el cursor dentro de parÃ©ntesis/sqrt
         self.fx_entry.bind("<ButtonRelease-1>", self._mover_cursor_helper)
         self.fx_entry.bind("<KeyRelease>", self._mover_cursor_helper)
 
     def _insertar_texto(self, texto: str):
-        """(RETO 2) Inserta texto en el Entry de f(x) en la posición del cursor."""
+        """(RETO 2) Inserta texto en el Entry de f(x) en la posiciÃ³n del cursor."""
         try:
             self.fx_entry.focus()
             posicion_cursor = self.fx_entry.index(tk.INSERT)
@@ -617,7 +628,7 @@ class VentanaBiseccion(ttk.Frame):
             print(f"Error al insertar texto: {e}")
 
     def _mover_cursor_helper(self, event=None):
-        """(RETO 2) Mueve el cursor si se hace clic justo después de '()'"""
+        """(RETO 2) Mueve el cursor si se hace clic justo despuÃ©s de '()'"""
         try:
             pos = self.fx_entry.index(tk.INSERT)
             if pos > 0:
@@ -629,32 +640,35 @@ class VentanaBiseccion(ttk.Frame):
             pass
 
     def _limpiar_resultado(self):
-        """Limpia la zona de resultados y deshabilita el botón de proceso."""
+        """Limpia la zona de resultados y deshabilita el botÃ³n de proceso."""
         for w in self.marco_resultado.winfo_children():
             w.destroy()
         self.boton_proceso.config(state="disabled")
         self._registro_final = []
         self._resultado_final = None
         self._limpiar_grafico()
-        self._esperando = "a"
-        # No borramos a/b a propósito; solo limpiamos el dibujo
+        # No borramos a/b a propÃ³sito; solo limpiamos el dibujo
 
     def _limpiar_grafico(self):
-        """Limpia la gráfica."""
-        self.ax.clear()
-        # Reset marcadores de intervalo
+        """Limpia la grA?fica pero deja lista la lA-nea reutilizable."""
+        self.ax.cla()
+        self.ax.set_facecolor("#ffffff")
+        self.ax.grid(True, linestyle="--", alpha=0.6)
+        self.ax.axhline(0, color="black", linewidth=0.7)
+        self.ax.axvline(0, color="black", linewidth=0.7)
+        self.ax.set_title("GrA?fico de f(x)")
+        self.ax.set_xlabel("x")
+        self.ax.set_ylabel("f(x)")
+        self.ax.format_coord = lambda x, y: ""
         self._linea_a = self._linea_b = self._sombreado = None
-        self._f_numpy = getattr(self, "_f_numpy", None)
-        self.ax.set_title("Gráfico de $f(x)$")
-        self.ax.set_xlabel("$x$")
-        self.ax.set_ylabel("$f(x)$")
-        self.ax.grid(True, linestyle='--', alpha=0.6)
-        self.ax.axhline(0, color='black', linewidth=0.7) # Eje X
-        self.ax.axvline(0, color='black', linewidth=0.7) # Eje Y
-        self.canvas.draw()
+        etiqueta = getattr(self, "_curve_line", None)
+        etiqueta = etiqueta.get_label() if etiqueta else "f(x)"
+        self._curve_line, = self.ax.plot([], [], linewidth=2, label=etiqueta)
+        self.ax.legend(loc="best")
+        self.canvas.draw_idle()
 
     # =========================
-    #   NUEVO: Gráfica en vivo
+    #   NUEVO: GrÃ¡fica en vivo
     # =========================
     def _programar_redibujo(self):
         """Programa un redibujo con *debounce* para no congelar la UI."""
@@ -668,50 +682,87 @@ class VentanaBiseccion(ttk.Frame):
         self._after_id = self.after(250, self._auto_graficar)
 
     def _auto_graficar(self):
-        """Grafica f(x) automáticamente sin requerir [a,b]."""
-        self._limpiar_grafico()
         expr = (self.fx_var.get() or "").strip()
         if not expr:
-            self.canvas.draw()
+            self._f_numpy = None
+            self._curve_line.set_data([], [])
+            self.ax.set_title("GrA?fico de f(x)")
+            self.canvas.draw_idle()
             return
         try:
-            # Evaluador vectorizado para numpy
             self._f_numpy = _crear_evaluador_numpy(expr)
-
-            # Determinar rango X automáticamente
             x_min, x_max = self._sugerir_rango_x(self._f_numpy)
-            self._rango_actual = (x_min, x_max)
-
-            x = np.linspace(x_min, x_max, 1200)
-            y = self._f_numpy(x)
-
-            self.ax.plot(x, y, label=f"$f(x) = {expr.replace('**', '^')}$")
-            self.ax.axhline(0, linewidth=0.7)
-            self.ax.axvline(0, linewidth=0.7)
-            self.ax.grid(True, linestyle="--", alpha=0.6)
-            self.ax.set_title("Gráfico de $f(x)$ (auto)")
-
-            finite = np.isfinite(y)
-            if finite.any():
-                y_min, y_max = float(np.min(y[finite])), float(np.max(y[finite]))
-                if y_min == y_max:
-                    pad = 1.0 if y_min == 0 else abs(y_min) * 0.25
-                    self.ax.set_ylim(y_min - pad, y_max + pad)
-                else:
-                    pad = (y_max - y_min) * 0.15
-                    self.ax.set_ylim(y_min - pad, y_max + pad)
-
+            self.ax.set_xlim(x_min, x_max)
+            self._rango_actual = (min(x_min, x_max), max(x_min, x_max))
+            self._zoom_home = (min(x_min, x_max), max(x_min, x_max))
+            self._curve_line.set_label(f"f(x) = {expr}")
             self.ax.legend(loc="best")
-
-            # Si ya hay a/b en la UI, pinta marcadores
+            self._redraw_visible_curve()
             self._actualizar_marcadores_intervalo()
-            self.canvas.draw()
         except Exception as e:
-            self.ax.set_title(f"Esperando una expresión válida… ({e})")
-            self.canvas.draw()
+            self.ax.set_title(f"Esperando una expresiA3n vA?lida??? ({e})")
+            self.canvas.draw_idle()
+
+    def _on_view_change(self):
+        """Debounce: espera un instante y redibuja la curva en el rango visible."""
+        if getattr(self, "_view_after_id", None):
+            try:
+                self.after_cancel(self._view_after_id)
+            except Exception:
+                pass
+        self._view_after_id = self.after(90, self._redraw_visible_curve)
+
+    def _ajustar_zoom(self, factor: float):
+        """Aplica zoom conservando el centro visible actual."""
+        try:
+            x0, x1 = self.ax.get_xlim()
+        except Exception:
+            return
+        if not np.isfinite([x0, x1]).all() or x0 == x1:
+            return
+        centro = 0.5 * (x0 + x1)
+        mitad = max(1e-9, 0.5 * (x1 - x0) * factor)
+        self.ax.set_xlim(centro - mitad, centro + mitad)
+        self._redraw_visible_curve()
+
+    def _restaurar_zoom(self):
+        """Vuelve al rango automático sugerido para la función actual."""
+        home = getattr(self, "_zoom_home", None)
+        if not home:
+            return
+        self.ax.set_xlim(*home)
+        self._redraw_visible_curve()
+
+    def _redraw_visible_curve(self):
+        f = getattr(self, "_f_numpy", None)
+        if f is None:
+            return
+
+        home = getattr(self, "_zoom_home", None)
+        if home:
+            lo, hi = home
+        else:
+            x0, x1 = self.ax.get_xlim()
+            if not np.all(np.isfinite([x0, x1])) or x0 == x1:
+                return
+            lo, hi = (x0, x1) if x0 < x1 else (x1, x0)
+
+        x = np.linspace(lo, hi, 1200)
+        y = np.asarray(f(x), dtype=float)
+        finite = np.isfinite(y)
+        if not finite.any():
+            self._curve_line.set_data([], [])
+            self.canvas.draw_idle()
+            return
+        y = np.where(finite, y, np.nan)
+        self._curve_line.set_data(x, y)
+        self.ax.relim()
+        self.ax.autoscale_view(scalex=False, scaley=True)
+        self._rango_actual = (lo, hi)
+        self.canvas.draw_idle()
 
     def _sugerir_rango_x(self, f_numpy):
-        """Busca un rango donde la función sea visible y tenga variación."""
+        """Busca un rango donde la funciÃ³n sea visible y tenga variaciÃ³n."""
         rangos = [(-1,1), (-2,2), (-5,5), (-10,10), (-25,25), (-50,50)]
         for lo, hi in rangos:
             x = np.linspace(lo, hi, 600)
@@ -724,37 +775,9 @@ class VentanaBiseccion(ttk.Frame):
         return -10.0, 10.0
 
     # =======================================
-    #   NUEVO: Selección de [a,b] con clics
-    # =======================================
-    def _on_click(self, event):
-        """Selecciona a y b con clics sobre la gráfica."""
-        if event.inaxes != self.ax or event.xdata is None:
-            return
-        x = float(event.xdata)
-
-        if self._esperando == "a":
-            self.a_var.set(f"{x:.10g}")
-            self._esperando = "b"
-        else:
-            self.b_var.set(f"{x:.10g}")
-            self._esperando = "a"
-
-        # Asegurar orden a<=b
-        try:
-            a = float(self.a_var.get().replace(",", "."))
-            b = float(self.b_var.get().replace(",", "."))
-            if a > b:
-                a, b = b, a
-                self.a_var.set(f"{a:.10g}")
-                self.b_var.set(f"{b:.10g}")
-        except Exception:
-            pass
-
-        self._actualizar_marcadores_intervalo()
-        self.canvas.draw()
-
-    def _actualizar_marcadores_intervalo(self):
-        """Dibuja líneas y sombreado de [a,b]; verde si hay cambio de signo."""
+    #   NUEVO: SelecciÃ³n de [a,b] con clics
+    # =======================================    def _actualizar_marcadores_intervalo(self):
+        """Dibuja lÃ­neas y sombreado de [a,b]; verde si hay cambio de signo."""
         # Borrar marcadores previos
         for line in (getattr(self, "_linea_a", None), getattr(self, "_linea_b", None)):
             if line is not None:
@@ -788,7 +811,7 @@ class VentanaBiseccion(ttk.Frame):
         self._linea_a = self.ax.axvline(lo, linestyle="--", linewidth=1.2)
         self._linea_b = self.ax.axvline(hi, linestyle="--", linewidth=1.2)
 
-        # Color del sombreado según cambio de signo
+        # Color del sombreado segÃºn cambio de signo
         if self._f_numpy is not None:
             fa = self._f_numpy(np.array([lo], dtype=float))
             fb = self._f_numpy(np.array([hi], dtype=float))
@@ -800,15 +823,15 @@ class VentanaBiseccion(ttk.Frame):
         color = (0.2, 0.7, 0.2, 0.15) if cambia else (0.8, 0.2, 0.2, 0.12)
         self._sombreado = self.ax.axvspan(lo, hi, color=color)
 
-        # Mantener el rango X estable si se calculó
+        # Mantener el rango X estable si se calculÃ³
         if getattr(self, "_rango_actual", None) is not None:
             self.ax.set_xlim(*self._rango_actual)
 
     # =========================
-    #   Cálculo y visualización
+    #   CÃ¡lculo y visualizaciÃ³n
     # =========================
     def _calcular(self) -> None:
-        """Manejador del botón 'Calcular Raíz'."""
+        """Manejador del botÃ³n 'Calcular RaÃ­z'."""
         self._limpiar_resultado()
         
         try:
@@ -826,23 +849,23 @@ class VentanaBiseccion(ttk.Frame):
             
             # Mostrar resultado (texto)
             texto_resultado = (
-                f"Raíz aproximada encontrada:\n"
-                f"c ≈ {formatear_valor_ui(raiz)}\n\n"
-                f"(Valor numérico: {float(raiz):.12g})\n\n"
+                f"RaÃ­z aproximada encontrada:\n"
+                f"c â‰ˆ {formatear_valor_ui(raiz)}\n\n"
+                f"(Valor numÃ©rico: {float(raiz):.12g})\n\n"
                 f"Iteraciones: {len(registro)}"
             )
             ttk.Label(self.marco_resultado, text=texto_resultado, font=("Segoe UI", 11), justify="left").pack(anchor="w")
             self.boton_proceso.config(state="normal")
             
-            # Dibujar el gráfico focalizado en [a,b] y la raíz
+            # Dibujar el grÃ¡fico focalizado en [a,b] y la raÃ­z
             self._dibujar_grafica(expresion, a_frac, b_frac, raiz)
 
         except Exception as error:
-            messagebox.showerror("Error de Cálculo", str(error), parent=self)
+            messagebox.showerror("Error de CÃ¡lculo", str(error), parent=self)
             self.boton_proceso.config(state="disabled")
 
     def _dibujar_grafica(self, expresion, a, b, raiz):
-        """Dibuja la función y la raíz en el canvas de Matplotlib."""
+        """Dibuja la funciÃ³n y la raÃ­z en el canvas de Matplotlib."""
         self._limpiar_grafico()
         try:
             f_numpy = _crear_evaluador_numpy(expresion)
@@ -850,7 +873,7 @@ class VentanaBiseccion(ttk.Frame):
             # Convertir a float para graficar
             a_f, b_f, r_f = float(a), float(b), float(raiz)
             
-            # Crear un rango de 1000 puntos para la gráfica (20% de aire a cada lado)
+            # Crear un rango de 1000 puntos para la grÃ¡fica (20% de aire a cada lado)
             ancho = b_f - a_f
             x_min = a_f - (ancho * 0.2)
             x_max = b_f + (ancho * 0.2)
@@ -865,13 +888,13 @@ class VentanaBiseccion(ttk.Frame):
             # Curva
             self.ax.plot(x_vals, y_vals, label=f"$f(x) = {expresion.replace('**', '^')}$")
 
-            # Intervalo y raíz
+            # Intervalo y raÃ­z
             self.ax.axvline(a_f, color='tab:orange', linestyle='--', linewidth=1.2, label='a')
             self.ax.axvline(b_f, color='tab:orange', linestyle='--', linewidth=1.2, label='b')
             self.ax.axvspan(min(a_f, b_f), max(a_f, b_f), color=(0.2, 0.5, 0.9, 0.10))
-            self.ax.plot([r_f], [0], marker='o', markersize=6, color='tab:red', label='raíz aprox.')
+            self.ax.plot([r_f], [0], marker='o', markersize=6, color='tab:red', label='raÃ­z aprox.')
 
-            # Ajustar límites de Y para que se vea bien
+            # Ajustar lÃ­mites de Y para que se vea bien
             y_visibles = y_vals[~np.isnan(y_vals)]
             if y_visibles.size > 0:
                 y_min, y_max = np.min(y_visibles), np.max(y_visibles)
@@ -880,7 +903,7 @@ class VentanaBiseccion(ttk.Frame):
                 if y_max < 0: y_max = 0.1 * y_rango
                 self.ax.set_ylim(y_min - 0.1 * y_rango, y_max + 0.1 * y_rango)
 
-            self.ax.set_title("Gráfico de $f(x)$")
+            self.ax.set_title("GrÃ¡fico de $f(x)$")
             self.ax.legend()
             self.canvas.draw()
             
@@ -889,11 +912,11 @@ class VentanaBiseccion(ttk.Frame):
             self.canvas.draw()
 
     def _mostrar_proceso(self) -> None:
-        """Manejador del botón 'Ver Proceso'."""
+        """Manejador del botÃ³n 'Ver Proceso'."""
         if not self._registro_final:
             messagebox.showwarning("Proceso", "No hay datos de proceso para mostrar.", parent=self)
             return
-        abrir_ventana_tabla_biseccion(self, self._registro_final, f"Proceso: Bisección f(x)={self.fx_var.get()}")
+        abrir_ventana_tabla_biseccion(self, self._registro_final, f"Proceso: BisecciÃ³n f(x)={self.fx_var.get()}")
 
 class PanelMatriz(ttk.Frame):
     """Panel con controles de dimensiones y un componente EntradaMatriz."""
@@ -998,15 +1021,15 @@ class VentanaEjercicioTranspuestas(ttk.Frame):
             xxT = multiplicar_matrices(x, xT, registro=log)
             xTx = multiplicar_matrices(xT, x, registro=log)  # escalar 1x1
 
-            # y^T x (solo si y no está vacía y coincide dimensión)
+            # y^T x (solo si y no estÃ¡ vacÃ­a y coincide dimensiÃ³n)
             yTx = None
             if y and len(y) == len(x):
                 yT = transpuesta(y, registro=log)
                 yTx = multiplicar_matrices(yT, x, registro=log)
 
-            # ¿Está definida A^T x^T?
+            # Â¿EstÃ¡ definida A^T x^T?
             ok, detalle = es_multiplicable(AT, xT)
-            definida = "Sí" if ok else "No"
+            definida = "SÃ­" if ok else "No"
             razon = detalle + " (Para que A^T x^T exista, A debe tener exactamente 1 fila)."
 
             # Mostrar
@@ -1022,17 +1045,17 @@ class VentanaEjercicioTranspuestas(ttk.Frame):
             # Conclusiones (dos formatos)
             m_, n_ = len(A), len(A[0]) if A and A[0] else 0
             texto_castellano = (
-                "Conclusión (castellano):\n"
-                f"• (Ax)^T y x^T A^T coinciden numéricamente (propiedad (AB)^T = B^T A^T).\n"
-                f"• x x^T es matriz simétrica de rango 1 (si x ≠ 0). x^T x es el ‘tamano’ al cuadrado de x (producto interno).\n"
-                f"• A^T x^T está {definida.lower()}. {razon}"
+                "ConclusiÃ³n (castellano):\n"
+                f"â€¢ (Ax)^T y x^T A^T coinciden numÃ©ricamente (propiedad (AB)^T = B^T A^T).\n"
+                f"â€¢ x x^T es matriz simÃ©trica de rango 1 (si x â‰  0). x^T x es el â€˜tamanoâ€™ al cuadrado de x (producto interno).\n"
+                f"â€¢ A^T x^T estÃ¡ {definida.lower()}. {razon}"
             )
             texto_comb_lin = (
-                "Conclusión (combinación lineal):\n"
-                "• Ax es la combinación lineal de las columnas de A con coeficientes dados por las entradas de x; "
-                "por tanto (Ax)^T = x^T A^T es el mismo resultado visto como combinación de las filas de A^T.\n"
-                "• x x^T es el operador ‘proyección’/outer product generado por x (matriz de todas las combinaciones a_i a_j); "
-                "x^T x es la suma de cuadrados de los coeficientes de esa combinación (norma al cuadrado)."
+                "ConclusiÃ³n (combinaciÃ³n lineal):\n"
+                "â€¢ Ax es la combinaciÃ³n lineal de las columnas de A con coeficientes dados por las entradas de x; "
+                "por tanto (Ax)^T = x^T A^T es el mismo resultado visto como combinaciÃ³n de las filas de A^T.\n"
+                "â€¢ x x^T es el operador â€˜proyecciÃ³nâ€™/outer product generado por x (matriz de todas las combinaciones a_i a_j); "
+                "x^T x es la suma de cuadrados de los coeficientes de esa combinaciÃ³n (norma al cuadrado)."
             )
             _, current_rows = self.out.grid_size()  # filas ocupadas hasta ahora
             lbl1 = ttk.Label(self.out, text=texto_castellano, justify="left")
@@ -1565,7 +1588,7 @@ class Aplicacion(tk.Tk):
             ("determinante", "Determinante (cofactores)", VentanaDeterminante),
             ("cramer", "Regla de Cramer", VentanaCramer),
             #Metodos numericos
-            ("biseccion", "Método de Bisección", VentanaBiseccion),
+            ("biseccion", "MÃ©todo de BisecciÃ³n", VentanaBiseccion),
         ]
         self.vistas_info = {
             clave: {"nombre": nombre, "constructor": constructor}
@@ -1697,3 +1720,5 @@ class Aplicacion(tk.Tk):
 if __name__ == "__main__":
     aplicacion = Aplicacion()
     aplicacion.mainloop()
+
+
