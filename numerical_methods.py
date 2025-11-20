@@ -215,29 +215,50 @@ def metodo_regla_falsa(
     tolerancia: Fraction,
     max_iter: int = 100
 ) -> Tuple[Fraction, RegistroBiseccion]:
-    """
-    Regla Falsa (Posición Falsa) con aritmética de Fraction y el mismo
-    formato de registro que Bisección.
-      - c = (a*f(b) - b*f(a)) / (f(b) - f(a))
-      - Actualiza [a,b] según el signo de f(c)
-      - Criterio de paro: |c - c_prev| < tolerancia  ó  f(c) == 0
-    """
+
     registro: RegistroBiseccion = []
 
+    # =====================================================
     # 1) Construir f(x)
+    # =====================================================
     try:
         f = _crear_evaluador_frac(expresion_f)
     except Exception as e:
         raise ValueError(f"La expresión f(x) es inválida: {e}")
 
+    # =====================================================
+    # 2) Verificar intervalo
+    # =====================================================
     if a >= b:
-        raise ValueError("El intervalo [a, b] es inválido (a debe ser menor que b).")
+        raise ValueError("Intervalo inválido: se requiere que a < b.")
 
-    # 2) Evaluar extremos
-    f_a = f(a)
-    f_b = f(b)
+    # =====================================================
+    # 3) Probar si la función realmente depende de x
+    # =====================================================
+    try:
+        f_0 = f(Fraction(0))
+        f_1 = f(Fraction(1))
+        if f_0 == f_1:
+            # Podría ser constante → revisar otros puntos
+            f_2 = f(Fraction(2))
+            if f_0 == f_2:
+                raise ValueError(
+                    "La función parece ser constante. "
+                    "La Regla Falsa no puede aplicarse porque no existe un cambio de signo."
+                )
+    except:
+        pass  # si no puede evaluar, no importa aquí
 
-    # Permite raíz exacta en extremos
+    # =====================================================
+    # 4) Evaluar extremos
+    # =====================================================
+    try:
+        f_a = f(a)
+        f_b = f(b)
+    except Exception as e:
+        raise ValueError(f"No es posible evaluar f(x) en los extremos del intervalo: {e}")
+
+    # Raíz exacta en extremos
     if f_a == 0:
         registro.append({"iter": 0, "a": a, "f(a)": f_a, "b": b, "f(b)": f_b, "c": a, "f(c)": f_a, "error": 0})
         return a, registro
@@ -245,23 +266,54 @@ def metodo_regla_falsa(
         registro.append({"iter": 0, "a": a, "f(a)": f_a, "b": b, "f(b)": f_b, "c": b, "f(c)": f_b, "error": 0})
         return b, registro
 
-    # Condición necesaria (como en Bisección)
+    # =====================================================
+    # 5) Verificar signo
+    # =====================================================
     if f_a * f_b > 0:
         raise ValueError(
-            "Error: f(a) y f(b) deben tener signos opuestos para la Regla Falsa.\n"
+            "No se puede aplicar Regla Falsa: f(a) y f(b) tienen el MISMO signo.\n"
             f"f({a}) = {f_a}\n"
-            f"f({b}) = {f_b}"
+            f"f({b}) = {f_b}\n"
+            "→ No existe garantía de raíz dentro del intervalo."
         )
 
+    # =====================================================
+    # 6) Detectar discontinuidades dentro del intervalo
+    # =====================================================
+    puntos_prueba = 10
+    x_prev = a
+    f_prev = f_a
+
+    for i in range(1, puntos_prueba + 1):
+        x_i = a + (b - a) * Fraction(i, puntos_prueba)
+        try:
+            f_i = f(x_i)
+        except:
+            raise ValueError(
+                f"La función no es continua dentro del intervalo.\n"
+                f"Error al evaluar f({x_i})."
+            )
+
+        # Discontinuidad evidente: salto enorme
+        if abs(f_i - f_prev) > 1e6:
+            raise ValueError(
+                "La función presenta una discontinuidad dentro del intervalo.\n"
+                "La Regla Falsa solo funciona con funciones continuas."
+            )
+
+        x_prev, f_prev = x_i, f_i
+
+    # =====================================================
+    # 7) Iteraciones normales (igual que tu versión)
+    # =====================================================
     c_prev: Fraction | None = None
     c = a
 
     for k in range(1, max_iter + 1):
         denom = (f_b - f_a)
         if denom == 0:
-            raise ValueError("f(a) y f(b) son iguales; no puede continuar la Regla Falsa (división entre cero).")
+            raise ValueError("Error: f(a) = f(b). No se puede continuar (división entre cero).")
 
-        # c = a - f(a)*(b-a)/(f(b)-f(a))   (forma equivalente exacta):
         c = (a * f_b - b * f_a) / denom
         f_c = f(c)
 
@@ -298,68 +350,82 @@ def newton_raphson(
     tol: float = 1e-7,
     max_iter: int = 100
 ) -> Tuple[float, List[Dict[str, Any]]]:
-    """
-    Método de Newton-Raphson: x_{n+1} = x_n - f(x_n) / f'(x_n)
-    
-    Args:
-        func_str: La función como string (ej: "x^2 - 4")
-        x0: Valor inicial (semilla)
-        tol: Tolerancia para el criterio de paro
-        max_iter: Número máximo de iteraciones
-        
-    Returns:
-        (Raíz aproximada, Lista de diccionarios con el historial)
-    """
-    # 1. Preparamos la función usando el preprocesador existente
+
     func_py = _preprocesar_expresion(func_str)
-    
-    # 2. Creamos un contexto matemático seguro y rápido para floats
-    #    Usamos 'math' estándar en lugar de Fraction para velocidad en Newton
+
     contexto = vars(math).copy()
     contexto['x'] = 0.0
     contexto['e'] = math.e
     contexto['pi'] = math.pi
-    # Aseguramos que si el usuario escribe "ln", funcione como "log"
     contexto['ln'] = math.log 
 
     def f(val_x: float) -> float:
         contexto['x'] = val_x
         try:
-            # Evaluamos con float explícito
-            return float(eval(func_py, {"__builtins__": None}, contexto))
+            val = eval(func_py, {"__builtins__": None}, contexto)
+            return float(val)
         except Exception:
-            return float('inf') # Retornar infinito si hay error matemático (ej. div por 0)
+            return float('inf')  # Discontinuidad o error interno
 
     registro = []
     x_actual = x0
 
+    # Para detección de ciclos u oscilación
+    ultimos_x = []
+
     for k in range(1, max_iter + 1):
-        # Calcular f(xi) y f'(xi)
+
         fx = f(x_actual)
-        
-        # Si encontramos la raíz exacta
+
+        # ----------- (1) Discontinuidad cercana -----------
+        if math.isinf(fx) or abs(fx) > 1e12:
+            registro.append({
+                "iter": k,
+                "xi": x_actual,
+                "f(xi)": fx,
+                "f'(xi)": None,
+                "error": "Discontinuidad detectada (|f(x)| → ∞)"
+            })
+            break
+
+        # Si f(x) = 0, raíz exacta
         if fx == 0:
-             registro.append({
+            registro.append({
                 "iter": k, "xi": x_actual, "f(xi)": fx, 
                 "f'(xi)": 0, "error": 0.0
             })
-             return x_actual, registro
+            return x_actual, registro
 
+        # Derivada numérica
         dfx = derivada_numerica(f, x_actual)
-        
-        # Protección contra división por cero (derivada nula)
+
+        # ----------- (2) Función no derivable ------------
+        if math.isinf(dfx) or math.isnan(dfx):
+            registro.append({
+                "iter": k,
+                "xi": x_actual,
+                "f(xi)": fx,
+                "f'(xi)": dfx,
+                "error": "Derivada indefinida o infinita"
+            })
+            break
+
+        # ----------- (3) Derivada cero -------------------
         if abs(dfx) < 1e-15:
             registro.append({
-                "iter": k, "xi": x_actual, "f(xi)": fx, 
-                "f'(xi)": dfx, "error": "Derivada ~ 0 (Punto estacionario)"
+                "iter": k,
+                "xi": x_actual,
+                "f(xi)": fx,
+                "f'(xi)": dfx,
+                "error": "Derivada casi 0 (punto estacionario)"
             })
-            # No podemos continuar si la derivada es 0
             break
-            
-        # Fórmula de Newton: x_new = x_old - f(x)/f'(x)
+
+        # Fórmula de Newton
         x_nuevo = x_actual - (fx / dfx)
         error = abs(x_nuevo - x_actual)
-        
+
+        # Registrar
         registro.append({
             "iter": k,
             "xi": x_actual,
@@ -369,12 +435,175 @@ def newton_raphson(
             "error": error
         })
 
-        # Criterio de parada
+        # ----------- (4) Divergencia ----------------------
+        if abs(x_nuevo) > 1e10:  # Número de magnitud absurda
+            registro.append({
+                "iter": k,
+                "xi": x_actual,
+                "f(xi)": fx,
+                "f'(xi)": dfx,
+                "error": "Divergencia: x_n crece demasiado"
+            })
+            break
+
+        # ----------- (5) Ciclo / Oscilación ---------------
+        ultimos_x.append(x_nuevo)
+        if len(ultimos_x) > 6:  # conservar últimos 6
+            ultimos_x.pop(0)
+        
+        # detectar repetición exacta o doble ciclo a↔b
+        if len(ultimos_x) >= 3:
+            # ciclo tipo a-b-a-b
+            if len(set([round(val, 12) for val in ultimos_x])) <= 2:
+                registro.append({
+                    "iter": k,
+                    "xi": x_actual,
+                    "f(xi)": fx,
+                    "f'(xi)": dfx,
+                    "error": "Oscilación / Ciclo de Newton detectado"
+                })
+                break
+        
+        # ----------- (6) Stagnation -----------------------
         if error < tol:
             return x_nuevo, registro
-            
+
+        if error == 0:  # No está progresando
+            registro.append({
+                "iter": k,
+                "xi": x_actual,
+                "f(xi)": fx,
+                "f'(xi)": dfx,
+                "error": "Stagnation: no hay avance"
+            })
+            break
+
         x_actual = x_nuevo
 
     return x_actual, registro
 
+def secante_falsaPosicion(
+    func_str: str,
+    x0: float,
+    x1: float,
+    tol: float = 1e-7,
+    max_iter: int = 100
+) -> Tuple[float, List[Dict[str, Any]]]:
+    """
+    Método de la Secante (Falsa Posición tipo secante) usando:
+        x_{i+1} = x_i - f(x_i)*(x_{i-1} - x_i) / (f(x_{i-1}) - f(x_i))
 
+    Args:
+        func_str: f(x) como string
+        x0: primer valor inicial  (x_{i-1})
+        x1: segundo valor inicial (x_i)
+        tol: tolerancia
+        max_iter: número máximo de iteraciones
+
+    Returns:
+        (raíz aproximada, historial de iteraciones)
+    """
+
+    # Preparar función evaluable
+    func_py = _preprocesar_expresion(func_str)
+    contexto = vars(math).copy()
+    contexto['e'] = math.e
+    contexto['pi'] = math.pi
+    contexto['ln'] = math.log
+
+    def f(val_x: float) -> float:
+        contexto['x'] = val_x
+        try:
+            return float(eval(func_py, {"__builtins__": None}, contexto))
+        except Exception:
+            return float('inf')  # discontinuidad
+
+    registro = []
+    xi_1 = x0
+    xi = x1
+
+    for k in range(1, max_iter + 1):
+
+        f_xi_1 = f(xi_1)
+        f_xi = f(xi)
+
+        # ----------- Discontinuidades -----------
+        if math.isinf(f_xi) or math.isinf(f_xi_1):
+            registro.append({
+                "iter": k,
+                "xi-1": xi_1,
+                "xi": xi,
+                "f(xi-1)": f_xi_1,
+                "f(xi)": f_xi,
+                "error": "Discontinuidad detectada"
+            })
+            break
+
+        # Raíz exacta
+        if f_xi == 0:
+            registro.append({
+                "iter": k,
+                "xi-1": xi_1,
+                "xi": xi,
+                "f(xi-1)": f_xi_1,
+                "f(xi)": f_xi,
+                "error": 0
+            })
+            return xi, registro
+
+        denom = (f_xi_1 - f_xi)
+
+        # ----------- División por cero -----------
+        if abs(denom) < 1e-15:
+            registro.append({
+                "iter": k,
+                "xi-1": xi_1,
+                "xi": xi,
+                "f(xi-1)": f_xi_1,
+                "f(xi)": f_xi,
+                "error": "Denominador casi 0 (puntos con misma f(x))"
+            })
+            break
+
+        # Fórmula de la secante EXACTA de tu imagen
+        x_nuevo = xi - f_xi * (xi_1 - xi) / denom
+        error = abs(x_nuevo - xi)
+
+        registro.append({
+            "iter": k,
+            "xi-1": xi_1,
+            "xi": xi,
+            "f(xi-1)": f_xi_1,
+            "f(xi)": f_xi,
+            "xi+1": x_nuevo,
+            "error": error
+        })
+
+        # Criterio de parada
+        if error < tol:
+            return x_nuevo, registro
+
+        # ----------- Detección de divergencia -----------
+        if abs(x_nuevo) > 1e10:
+            registro.append({
+                "iter": k,
+                "xi": xi,
+                "xi+1": x_nuevo,
+                "error": "Divergencia detectada"
+            })
+            break
+
+        # ----------- Detección de oscilación -----------
+        if abs(x_nuevo - xi_1) < tol and abs(xi - xi_1) < tol:
+            registro.append({
+                "iter": k,
+                "xi": xi,
+                "xi+1": x_nuevo,
+                "error": "Oscilación detectada"
+            })
+            break
+
+        # Mover valores para la siguiente iteración
+        xi_1, xi = xi, x_nuevo
+
+    return xi, registro

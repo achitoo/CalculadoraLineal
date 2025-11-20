@@ -51,6 +51,7 @@ from simple_calculator import SimpleCalculator, format_fraction_unicode
 from numerical_methods import (
     metodo_biseccion,
     metodo_regla_falsa,
+    secante_falsaPosicion,
     RegistroBiseccion,
     _crear_evaluador_numpy,
 )
@@ -1164,6 +1165,120 @@ class VentanaReglaFalsa(VentanaBiseccion):
     descripcion = "Encuentra una raiz de f(x) = 0 usando la Regla Falsa en [a, b]."
     metodo_solver = metodo_regla_falsa
 
+class VentanaSecante(VentanaBiseccion):
+    """Ventana para el Método de la Secante (versión falsa posición adaptada)."""
+
+    titulo = "Método de la Secante"
+    descripcion = "Encuentra una raíz aproximada usando la secante con (x0, x1)."
+    metodo_solver = secante_falsaPosicion
+
+    def __init__(self, maestro):
+        super().__init__(maestro)
+
+        # Cambiar etiquetas del intervalo por x0 y x1
+        for w in self.frame_controles.winfo_children():
+            w.destroy()
+
+        ttk.Label(self.frame_controles, text=self.titulo, font=("Segoe UI", 14, "bold")).pack(
+            anchor="w", pady=(0, 8)
+        )
+        ttk.Label(self.frame_controles, text=self.descripcion).pack(
+            anchor="w", pady=(0, 12)
+        )
+
+        controles = ttk.Frame(self.frame_controles)
+        controles.pack(fill="x", pady=5)
+
+        # Función
+        ttk.Label(controles, text="f(x) =").grid(row=0, column=0, padx=(0,5), pady=4, sticky="e")
+        self.fx_var = tk.StringVar(value="x^3 - x - 2")
+        self.fx_entry = ttk.Entry(controles, textvariable=self.fx_var, width=30)
+        self.fx_entry.grid(row=0, column=1, pady=4, sticky="we")
+
+        self._after_id = None
+        self.fx_var.trace_add("write", lambda *args: self._programar_redibujo())
+        self.fx_entry.bind("<KeyRelease>", lambda e: self._programar_redibujo())
+
+        self.crear_panel_botones_fx(controles)
+
+        # x0 y x1
+        ttk.Label(controles, text="Puntos iniciales (x0, x1):").grid(
+            row=3, column=0, padx=(0,5), pady=4, sticky="e"
+        )
+        self.x0_var = tk.StringVar(value="1")
+        self.x1_var = tk.StringVar(value="2")
+
+        fila = ttk.Frame(controles)
+        fila.grid(row=3, column=1, pady=4, sticky="w")
+        ttk.Label(fila, text="x0 =").pack(side="left", padx=(0, 4))
+        ttk.Entry(fila, textvariable=self.x0_var, width=12).pack(side="left")
+        ttk.Label(fila, text="  x1 =").pack(side="left", padx=(8, 4))
+        ttk.Entry(fila, textvariable=self.x1_var, width=12).pack(side="left")
+
+        # Tolerancia
+        ttk.Label(controles, text="Tolerancia:").grid(row=4, column=0, sticky="e")
+        self.tol_var = tk.StringVar(value="0.0001")
+        ttk.Entry(controles, textvariable=self.tol_var, width=12).grid(row=4, column=1, sticky="w")
+
+        # Iteraciones
+        ttk.Label(controles, text="Max. Iteraciones:").grid(row=5, column=0, sticky="e")
+        self.max_iter_var = tk.IntVar(value=100)
+        ttk.Spinbox(controles, from_=10, to=1000, width=10, textvariable=self.max_iter_var).grid(
+            row=5, column=1, sticky="w"
+        )
+
+        controles.columnconfigure(1, weight=1)
+
+        # Botones
+        botones = ttk.Frame(self.frame_controles)
+        botones.pack(fill="x", pady=(8, 0))
+        ttk.Button(botones, text="Calcular Raíz", command=self._calcular).pack(side="left")
+        ttk.Button(botones, text="Limpiar", command=self._limpiar_resultado).pack(side="left", padx=(8, 0))
+        self.boton_proceso = ttk.Button(botones, text="Ver Proceso", state="disabled", command=self._mostrar_proceso)
+        self.boton_proceso.pack(side="left", padx=(8, 0))
+
+        self.marco_resultado = ttk.Frame(self.frame_controles)
+        self.marco_resultado.pack(fill="both", expand=True, pady=(12, 0))
+
+    def _calcular(self):
+        self._limpiar_resultado()
+        try:
+            expresion = self.fx_var.get()
+            x0 = convertir_numero(self.x0_var.get())
+            x1 = convertir_numero(self.x1_var.get())
+            tol = convertir_numero(self.tol_var.get())
+            max_iter = int(self.max_iter_var.get())
+
+            # Evitar que la función de solver se convierta en un método ligado a la instancia
+            solver = getattr(type(self), "metodo_solver", secante_falsaPosicion)
+            # secante_falsaPosicion espera floats, convertir Fraction -> float aquí
+            raiz, registro = solver(expresion, float(x0), float(x1), float(tol), max_iter)
+            self._registro_final = registro
+            # Asegurar que _resultado_final tenga tipo Fraction | None como se declara en la clase base
+            try:
+                # Si ya es Fraction lo dejamos, si es float/otro lo convertimos
+                self._resultado_final = raiz if isinstance(raiz, Fraction) else Fraction(raiz)
+            except Exception:
+                # Como último recurso, intentar convertir a partir de la representación en cadena
+                self._resultado_final = Fraction(str(raiz))
+
+            texto = (
+                f"Raíz aproximada:\n"
+                f"x ≈ {formatear_valor_ui(raiz)}\n\n"
+                f"(Valor numérico: {float(raiz):.12g})\n"
+                f"Iteraciones: {len(registro)}"
+            )
+            ttk.Label(self.marco_resultado, text=texto, font=("Segoe UI", 11)).pack(anchor="w")
+            self.boton_proceso.config(state="normal")
+
+        except Exception as e:
+            messagebox.showerror("Error", str(e), parent=self)
+            self.boton_proceso.config(state="disabled")
+
+    def _mostrar_proceso(self):
+        abrir_ventana_tabla_biseccion(self, self._registro_final, "Proceso – Método de la Secante")
+
+
 class PanelMatriz(ttk.Frame):
     """Panel con controles de dimensiones y un componente EntradaMatriz."""
 
@@ -1754,6 +1869,7 @@ class VentanaCramer(ttk.Frame):
         abrir_ventana_proceso(self, self._registro, titulo="Proceso: Regla de Cramer")
 
 
+
 class MenuLateral(ttk.Frame):
     """Menu lateral desplazable."""
 
@@ -1850,6 +1966,7 @@ class Aplicacion(tk.Tk):
             ("biseccion", "Metodo de Biseccion", VentanaBiseccion),
             ("regla_falsa", "Metodo de Regla Falsa", VentanaReglaFalsa),
             ("newton", "Metodo de Newton", VistaNewton),
+            ("secante", "Metodo de la Secante", VentanaSecante),
         ]
         self.vistas_info = {
             clave: {"nombre": nombre, "constructor": constructor}
