@@ -3,7 +3,10 @@ from tkinter import ttk, messagebox
 from typing import Callable, List, Optional, Sequence, Union
 from fractions import Fraction
 import re
-
+import numpy as np
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from numerical_methods import newton_raphson, _preprocesar_expresion
 
 def _normalizar_expresion(expr: str) -> str:
     # Limpieza básica
@@ -92,6 +95,221 @@ def formatear_valor_ui(valor: NumberDisplay) -> str:
             texto = texto.rstrip("0").rstrip(".")
         return texto or "0"
     return str(valor)
+
+# --- CLASE VISTA NEWTON-RAPHSON MEJORADA ---
+class VistaNewton(tk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        
+        # --- Variables ---
+        self.var_funcion = tk.StringVar()
+        self.var_x0 = tk.DoubleVar(value=1.0)
+        self.var_tol = tk.DoubleVar(value=1e-6)
+        self._plot_timer = None 
+
+        # --- Interfaz ---
+        self._crear_controles()
+        self._crear_area_grafica()
+        
+        # --- Eventos ---
+        # Detectar cambios para graficar automáticamente
+        self.var_funcion.trace_add("write", self._on_funcion_change)
+        self.var_x0.trace_add("write", self._on_funcion_change)
+
+    def _crear_controles(self):
+        # Contenedor principal de controles
+        frame_controles = tk.Frame(self)
+        frame_controles.pack(side=tk.TOP, fill=tk.X, pady=5)
+
+        # --- Fila 1: Entradas de Texto ---
+        frame_fila1 = tk.Frame(frame_controles)
+        frame_fila1.pack(side=tk.TOP, fill=tk.X, pady=2)
+        
+        tk.Label(frame_fila1, text="f(x) =").pack(side=tk.LEFT)
+        
+        # Entry guardado en self para poder insertar texto desde botones
+        self.entry_func = tk.Entry(frame_fila1, textvariable=self.var_funcion, width=35, font=("Consolas", 11))
+        self.entry_func.pack(side=tk.LEFT, padx=5)
+        # Al presionar Enter, calcula la raíz
+        self.entry_func.bind("<Return>", lambda e: self._calcular()) 
+        
+        tk.Label(frame_fila1, text="X0:").pack(side=tk.LEFT)
+        tk.Entry(frame_fila1, textvariable=self.var_x0, width=8).pack(side=tk.LEFT, padx=5)
+
+        btn_calc = tk.Button(frame_fila1, text="Calcular Raíz", command=self._calcular, 
+                             bg="#007acc", fg="white", font=("Arial", 9, "bold"))
+        btn_calc.pack(side=tk.LEFT, padx=10)
+
+        # --- Fila 2: Botones Matemáticos ---
+        frame_botones = tk.Frame(frame_controles)
+        frame_botones.pack(side=tk.TOP, fill=tk.X, pady=2)
+        
+        # Lista de tuplas: (Texto Botón, Texto a Insertar)
+        botones = [
+            ("sin", "sin("), ("cos", "cos("), ("tan", "tan("),
+            ("ln", "ln("), ("log", "log10("), ("e", "e"), 
+            ("π", "pi"), ("√", "sqrt("), ("^", "^"), 
+            ("(", "("), (")", ")"), ("Borrar", "CLEAR")
+        ]
+
+        for txt, val in botones:
+            if val == "CLEAR":
+                cmd = self._limpiar_funcion
+                bg_color = "#ffcccc" # Rojo claro para limpiar
+                width_btn = 6
+            else:
+                cmd = lambda v=val: self._insertar_texto(v)
+                bg_color = "#f0f0f0"
+                width_btn = 4
+
+            tk.Button(frame_botones, text=txt, command=cmd, width=width_btn, bg=bg_color).pack(side=tk.LEFT, padx=1)
+
+    def _insertar_texto(self, texto):
+        """Inserta texto en la posición del cursor y devuelve el foco."""
+        try:
+            idx = self.entry_func.index(tk.INSERT)
+            self.entry_func.insert(idx, texto)
+            self.entry_func.focus_set()
+        except:
+            # Fallback si no tiene foco
+            current = self.var_funcion.get()
+            self.var_funcion.set(current + texto)
+
+    def _limpiar_funcion(self):
+        self.var_funcion.set("")
+        self.entry_func.focus_set()
+
+    def _crear_area_grafica(self):
+        # Figura de Matplotlib
+        self.fig = Figure(figsize=(5, 4), dpi=100)
+        self.ax = self.fig.add_subplot(111)
+        self._configurar_ejes()
+
+        # Canvas de Tkinter
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+        self.canvas_widget = self.canvas.get_tk_widget()
+        self.canvas_widget.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        
+        # Area de resultados
+        self.txt_resultados = tk.Text(self, height=8, font=("Consolas", 9))
+        self.txt_resultados.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
+
+    def _configurar_ejes(self):
+        self.ax.set_xlabel("x")
+        self.ax.set_ylabel("f(x)")
+        self.ax.grid(True, linestyle='--', alpha=0.6)
+        self.ax.axhline(0, color='black', linewidth=1)
+        self.ax.axvline(0, color='black', linewidth=1)
+
+    def _on_funcion_change(self, *args):
+        # Debounce: Esperar 500ms de inactividad antes de graficar
+        if self._plot_timer is not None:
+            self.after_cancel(self._plot_timer)
+        self._plot_timer = self.after(500, self._actualizar_grafica)
+
+    def _actualizar_grafica(self):
+        funcion_str = self.var_funcion.get()
+        if not funcion_str.strip():
+            return
+
+        # ESTO ES LO QUE BORRABA TUS RESULTADOS
+        self.txt_resultados.delete(1.0, tk.END)
+
+        try:
+            # 1. Preprocesamiento
+            # Primero un reemplazo visual básico
+            func_py = funcion_str.replace('^', '**')
+            # Intentamos usar el preprocesador robusto del módulo numerical_methods
+            try:
+                func_py = _preprocesar_expresion(funcion_str)
+            except Exception:
+                pass
+
+            # 2. Obtener X0 para centrar gráfica
+            try:
+                val_x0 = self.var_x0.get()
+            except:
+                val_x0 = 0.0
+            
+            # 3. Generar datos X
+            rango = 10 
+            x = np.linspace(val_x0 - rango, val_x0 + rango, 400)
+            
+            # 4. Contexto Numpy (Mapeo de funciones)
+            contexto_np = {
+                "x": x, "np": np,
+                "sin": np.sin, "cos": np.cos, "tan": np.tan,
+                "sqrt": np.sqrt, "exp": np.exp, 
+                "log": np.log, "ln": np.log, "log10": np.log10,
+                "asin": np.arcsin, "acos": np.arccos, "atan": np.arctan,
+                "sinh": np.sinh, "cosh": np.cosh, "tanh": np.tanh,
+                "pi": np.pi, "e": np.e, "abs": np.abs
+            }
+
+            # 5. Evaluar
+            y = eval(func_py, {"__builtins__": None}, contexto_np)
+
+            # Convertir escalar a array si es necesario (ej: f(x) = 5)
+            if isinstance(y, (int, float, np.number)):
+                y = np.full_like(x, float(y))
+            
+            # 6. Dibujar
+            self.ax.clear()
+            self._configurar_ejes()
+            self.ax.plot(x, y, color='blue', linewidth=1.5, label='f(x)')
+            self.ax.plot(val_x0, 0, 'ro', markersize=8, label='X0')
+            
+            # 7. Auto-Zoom inteligente (evitar asíntotas gigantes)
+            y_validos = y[np.isfinite(y)]
+            if len(y_validos) > 0:
+                ymin, ymax = np.min(y_validos), np.max(y_validos)
+                # Si el rango es gigante (posible asíntota), cortamos
+                if ymax - ymin > 50:
+                    self.ax.set_ylim(-25, 25)
+                else:
+                    margen = (ymax - ymin) * 0.1 if ymax != ymin else 1.0
+                    self.ax.set_ylim(ymin - margen, ymax + margen)
+            
+            self.ax.legend()
+            self.canvas.draw()
+
+        except Exception as e:
+            # Mostrar error de sintaxis discretamente en el log
+            self.txt_resultados.insert(tk.END, f"Esperando ecuación válida... ({str(e)})\n")
+
+    def _calcular(self):
+        f_str = self.var_funcion.get()
+        try:
+            x0 = self.var_x0.get()
+            tol = self.var_tol.get()
+            
+            # Llamada al método numérico real
+            raiz, registro = newton_raphson(f_str, x0, tol)
+            
+            # 1. PRIMERO ACTUALIZAMOS LA GRÁFICA
+            self._actualizar_grafica()
+            self.ax.plot(raiz, 0, 'go', markersize=8, label='Raíz')
+            self.ax.legend()
+            self.canvas.draw()
+            
+            # 2. LUEGO ESCRIBIMOS LOS RESULTADOS (Así no se borran)
+            self.txt_resultados.delete(1.0, tk.END)
+            self.txt_resultados.insert(tk.END, f"Raíz encontrada: {raiz}\n\n")
+            self.txt_resultados.insert(tk.END, f"{'Iter':<5} | {'xi':<12} | {'f(xi)':<12} | {'Error':<12}\n")
+            self.txt_resultados.insert(tk.END, "-"*60 + "\n")
+            
+            for fila in registro:
+                err_val = fila['error']
+                # Formateo seguro del error
+                err_str = f"{err_val:.2e}" if isinstance(err_val, (int, float)) else str(err_val)
+                
+                self.txt_resultados.insert(tk.END, 
+                    f"{fila['iter']:<5} | {fila['xi']:.8f} | {fila['f(xi)']:.2e} | {err_str}\n"
+                )
+            
+        except Exception as e:
+            tk.messagebox.showerror("Error de Cálculo", f"No se pudo calcular: {str(e)}")
 
 
 class VentanaIndependencia(ttk.Frame):
@@ -1593,6 +1811,17 @@ class MenuLateral(ttk.Frame):
                 boton.state(["disabled"])
             else:
                 boton.state(["!disabled"])
+    
+    def mostrar_newton(self):
+        # Limpiar frame principal
+        for widget in self.main_frame.winfo_children():
+            widget.destroy()
+            
+        # Cargar la vista de Newton
+        vista = VistaNewton(self.main_frame)
+        # vista.pack() ya se llama dentro del __init__ de la clase
+        
+        self._ocultar_menu() # Cerrar menú lateral si aplica
 
 
 class Aplicacion(tk.Tk):
@@ -1602,6 +1831,8 @@ class Aplicacion(tk.Tk):
         self.geometry("360x560")
         self.minsize(320, 480)
 
+        # --- AGREGA ESTA LÍNEA AQUÍ AL PRINCIPIO ---
+        self.vista_actual = None  # Inicializamos la variable para evitar el error
         self._menu_visible = False
         self.vistas_def = [
             ("calculadora", "Calculadora", SimpleCalculator),
@@ -1618,13 +1849,14 @@ class Aplicacion(tk.Tk):
             #Metodos numericos
             ("biseccion", "Metodo de Biseccion", VentanaBiseccion),
             ("regla_falsa", "Metodo de Regla Falsa", VentanaReglaFalsa),
+            ("newton", "Metodo de Newton", VistaNewton),
         ]
         self.vistas_info = {
             clave: {"nombre": nombre, "constructor": constructor}
             for clave, nombre, constructor in self.vistas_def
         }
         self.vistas_instanciadas: dict[str, ttk.Frame] = {}
-        self.vista_actual: Optional[ttk.Frame] = None
+        self.actual: Optional[ttk.Frame] = None
         self.dimensiones_vistas = {
             "calculadora": (360, 560, 320, 480),
             "suma": (900, 700, 900, 700),

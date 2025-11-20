@@ -285,5 +285,96 @@ def metodo_regla_falsa(
 
     return c, registro
 
+def derivada_numerica(f: Callable[[float], float], x: float, h: float = 1e-5) -> float:
+    """
+    Calcula la derivada aproximada de f en x usando diferencias centrales.
+    f'(x) ≈ (f(x+h) - f(x-h)) / 2h
+    """
+    return (f(x + h) - f(x - h)) / (2 * h)
+
+def newton_raphson(
+    func_str: str,
+    x0: float,
+    tol: float = 1e-7,
+    max_iter: int = 100
+) -> Tuple[float, List[Dict[str, Any]]]:
+    """
+    Método de Newton-Raphson: x_{n+1} = x_n - f(x_n) / f'(x_n)
+    
+    Args:
+        func_str: La función como string (ej: "x^2 - 4")
+        x0: Valor inicial (semilla)
+        tol: Tolerancia para el criterio de paro
+        max_iter: Número máximo de iteraciones
+        
+    Returns:
+        (Raíz aproximada, Lista de diccionarios con el historial)
+    """
+    # 1. Preparamos la función usando el preprocesador existente
+    func_py = _preprocesar_expresion(func_str)
+    
+    # 2. Creamos un contexto matemático seguro y rápido para floats
+    #    Usamos 'math' estándar en lugar de Fraction para velocidad en Newton
+    contexto = vars(math).copy()
+    contexto['x'] = 0.0
+    contexto['e'] = math.e
+    contexto['pi'] = math.pi
+    # Aseguramos que si el usuario escribe "ln", funcione como "log"
+    contexto['ln'] = math.log 
+
+    def f(val_x: float) -> float:
+        contexto['x'] = val_x
+        try:
+            # Evaluamos con float explícito
+            return float(eval(func_py, {"__builtins__": None}, contexto))
+        except Exception:
+            return float('inf') # Retornar infinito si hay error matemático (ej. div por 0)
+
+    registro = []
+    x_actual = x0
+
+    for k in range(1, max_iter + 1):
+        # Calcular f(xi) y f'(xi)
+        fx = f(x_actual)
+        
+        # Si encontramos la raíz exacta
+        if fx == 0:
+             registro.append({
+                "iter": k, "xi": x_actual, "f(xi)": fx, 
+                "f'(xi)": 0, "error": 0.0
+            })
+             return x_actual, registro
+
+        dfx = derivada_numerica(f, x_actual)
+        
+        # Protección contra división por cero (derivada nula)
+        if abs(dfx) < 1e-15:
+            registro.append({
+                "iter": k, "xi": x_actual, "f(xi)": fx, 
+                "f'(xi)": dfx, "error": "Derivada ~ 0 (Punto estacionario)"
+            })
+            # No podemos continuar si la derivada es 0
+            break
+            
+        # Fórmula de Newton: x_new = x_old - f(x)/f'(x)
+        x_nuevo = x_actual - (fx / dfx)
+        error = abs(x_nuevo - x_actual)
+        
+        registro.append({
+            "iter": k,
+            "xi": x_actual,
+            "f(xi)": fx,
+            "f'(xi)": dfx,
+            "xi+1": x_nuevo,
+            "error": error
+        })
+
+        # Criterio de parada
+        if error < tol:
+            return x_nuevo, registro
+            
+        x_actual = x_nuevo
+
+    return x_actual, registro
 
 
