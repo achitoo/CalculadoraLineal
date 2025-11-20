@@ -1270,13 +1270,91 @@ class VentanaSecante(VentanaBiseccion):
             )
             ttk.Label(self.marco_resultado, text=texto, font=("Segoe UI", 11)).pack(anchor="w")
             self.boton_proceso.config(state="normal")
+            self._dibujar_grafica(expresion, float(x0), float(x1), float(raiz))
 
         except Exception as e:
             messagebox.showerror("Error", str(e), parent=self)
             self.boton_proceso.config(state="disabled")
 
-    def _mostrar_proceso(self):
-        abrir_ventana_tabla_biseccion(self, self._registro_final, "Proceso – Método de la Secante")
+    def _mostrar_proceso(self): 
+
+        abrir_ventana_proceso_secante(self, self._registro_final, titulo="Proceso – Método de la Secante")
+
+
+def abrir_ventana_proceso_secante(
+    parent: tk.Misc, 
+    registro: RegistroBiseccion, # El tipo 'RegistroBiseccion' ya está importado
+    titulo: str = "Proceso: Metodo de la Secante"
+) -> None:
+    """Ventana con la tabla de iteraciones específica para la Secante."""
+    from tkinter import ttk, messagebox
+    
+    if not registro:
+        messagebox.showinfo("Proceso", "No hay proceso disponible todavía.", parent=parent)
+        return
+        
+    win = tk.Toplevel(parent)
+    win.title(titulo)
+    win.geometry("900x450")
+    
+    # 1. Definición de columnas y Treeview
+    # Las columnas son específicas de la Secante
+    cols = ("iter", "xi_1", "f_xi_1", "xi", "f_xi", "xi_mas_1", "error")
+    tabla = ttk.Treeview(win, columns=cols, show="headings", height=20) 
+    
+    encabezados = {
+        "iter": "Iter", 
+        "xi_1": "xi-1", 
+        "f_xi_1": "f(xi-1)", 
+        "xi": "xi", 
+        "f_xi": "f(xi)", 
+        "xi_mas_1": "xi+1", 
+        "error": "Error"
+    }
+
+    for col in cols:
+        tabla.heading(col, text=encabezados.get(col, col))
+        tabla.column(col, width=120, anchor="center")
+    
+    tabla.column("iter", width=40, anchor="center")
+    tabla.column("error", width=120, anchor="center") 
+    
+    # 2. Rellenar la tabla con los datos del registro
+    precision_g = 8 
+    
+    for fila_datos in registro:
+        try:
+            # Los nombres de las claves son los que devuelve secante_falsaPosicion
+            valores_formateados = (
+                fila_datos.get("iter", ""),
+                f'{float(fila_datos.get("xi-1", 0)):.{precision_g}g}',
+                f'{float(fila_datos.get("f(xi-1)", 0)):.{precision_g}g}',
+                f'{float(fila_datos.get("xi", 0)):.{precision_g}g}',
+                f'{float(fila_datos.get("f(xi)", 0)):.{precision_g}g}',
+                f'{float(fila_datos.get("xi+1", 0)):.{precision_g}g}',
+                f'{float(fila_datos.get("error", 0)):.{precision_g}g}'
+            )
+        except (ValueError, TypeError):
+             # Manejo de casos donde el 'error' es un string de aviso
+            valores_formateados = (
+                str(fila_datos.get("iter", "")),
+                str(fila_datos.get("xi-1", "")),
+                str(fila_datos.get("f(xi-1)", "")),
+                str(fila_datos.get("xi", "")),
+                str(fila_datos.get("f(xi)", "")),
+                str(fila_datos.get("xi+1", "")),
+                str(fila_datos.get("error", ""))
+            )
+        
+        tabla.insert("", "end", values=valores_formateados)
+
+    # 3. Mostrar y configurar como ventana modal
+    tabla.pack(fill="both", expand=True, padx=10, pady=10)
+    win.transient(parent)
+    win.grab_set()
+    parent.wait_window(win)
+
+
 
 
 class PanelMatriz(ttk.Frame):
