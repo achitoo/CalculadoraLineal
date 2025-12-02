@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from fractions import Fraction
 # Importamos TODO del backend
+from algebraic_fill import EquationFillDialog, LinearSystemDialog, AlgebraicCalcDialog
+
+
 from matrix_ops import (
     sumar_matrices_dos, restar_matrices_dos, multiplicar_matrices,
     transpuesta, determinante, matriz_inversa, rango_matriz,
@@ -22,7 +25,15 @@ class MatrixInput(tk.Frame):
 
         self.grid = tk.Frame(self, bg="white", padx=5, pady=5); self.grid.pack()
         self.ents = {}; self._gen()
-
+    def set(self, M):
+        f, c = len(M), len(M[0]) if M and isinstance(M[0], list) else (0,0)
+        self.sf.delete(0, 'end'); self.sf.insert(0, str(f))
+        self.sc.delete(0, 'end'); self.sc.insert(0, str(c))
+        self._gen()
+        for i in range(f):
+            for j in range(c):
+                self.ents[(i,j)].delete(0, 'end')
+                self.ents[(i,j)].insert(0, str(M[i][j]))
     def _gen(self):
         for w in self.grid.winfo_children(): w.destroy()
         self.ents.clear()
@@ -61,6 +72,11 @@ class VentanaCalculadoraUniversal(tk.Frame):
         sel = tk.Frame(self, bg="#e9ecef"); sel.pack(fill=tk.X)
         self.modo = tk.StringVar(value="AB")
         tk.Radiobutton(sel, text="A y B", var=self.modo, value="AB", command=self._upd, bg="#e9ecef").pack(side=tk.LEFT, padx=10)
+        # crea la barra como ya tienes
+        bar = tk.Frame(self, bg="white"); bar.pack(fill=tk.X, padx=10, pady=(0,6))
+
+        # NUEVO botón único
+        tk.Button(bar, text="Calculadora Algebraica", command=self._open_calc).pack(side=tk.LEFT, padx=4)
         tk.Radiobutton(sel, text="Solo A", var=self.modo, value="A", command=self._upd, bg="#e9ecef").pack(side=tk.LEFT)
         tk.Radiobutton(sel, text="Solo B", var=self.modo, value="B", command=self._upd, bg="#e9ecef").pack(side=tk.LEFT)
 
@@ -87,6 +103,24 @@ class VentanaCalculadoraUniversal(tk.Frame):
         self.txt = tk.Text(f_res, bg="#212529", fg="#00ff00", height=8, font=("Consolas", 10))
         self.txt.pack(fill=tk.BOTH, expand=True)
         self._upd()
+    def _fill_with_eq(self, target):
+        def on_fill(M):
+            if target == 'A': self.mA.set(M)
+            else: self.mB.set(M)
+        EquationFillDialog(self, getA=self.mA.get, getB=self.mB.get, on_fill=on_fill,
+                        title=f"Rellenar {target} con ecuación (usa A,B, +,-,*, T(), inv())")
+    def _open_calc(self):
+        def to_term(text):
+            # imprime en la Terminal de Salida de esta vista
+            self.txt.delete("1.0", "end")
+            self.txt.insert("end", text)
+
+        AlgebraicCalcDialog(
+            self,
+            getA=self.mA.get, getB=self.mB.get,
+            on_send_to_terminal=to_term,
+            on_fillA=self.mA.set, on_fillB=self.mB.set
+        )
 
     def _upd(self):
         m = self.modo.get()
@@ -173,7 +207,7 @@ class VentanaSistemas(tk.Frame):
         self._gen()
         
         self.pasos = []
-        tk.Button(self, text="Resolver (Cramer)", command=self._solve, bg="green", fg="white").pack(pady=5)
+        tk.Button(self, text="Resolver (Gauss Jordan)", command=self._solve, bg="green", fg="white").pack(pady=5)
         tk.Button(self, text="Ver Procedimiento", command=self._ver_pasos).pack()
         self.res_lbl = tk.Label(self, text="", bg="white", fg="blue", font=("bold", 11)); self.res_lbl.pack()
 
