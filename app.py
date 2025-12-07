@@ -2,7 +2,7 @@
 from tkinter import ttk
 from ui_components import MenuLateral, DashboardCard, COLOR_FONDO_PRINCIPAL
 from simple_calculator import SimpleCalculator
-from views_matrix import VentanaCalculadoraUniversal, VentanaSistemas, VentanaVectores
+from views_matrix import VentanaCalculadoraUniversal, VentanaGauss, VentanaSistemas, VentanaVectores
 from views_numerical import VistaNewton, VistaSecante, VentanaBiseccion, VentanaReglaFalsa
 
 class Aplicacion(tk.Tk):
@@ -23,6 +23,7 @@ class Aplicacion(tk.Tk):
                 "vistas": [
                     ("calc_mat", "Calculadora Matricial", VentanaCalculadoraUniversal),
                     ("sistemas", "Sistemas (Ax=b)", VentanaSistemas),
+                    ("gauss", "Gauss / Gauss-Jordan", VentanaGauss),
                     ("vectores", "Espacios Vectoriales", VentanaVectores),
                 ]
             },
